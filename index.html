@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10站閉合導線測量計算器 (中華民國乙、丙級測量技術士規範)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            body {
+                background: white !important;
+                color: black !important;
+            }
+            .shadow-sm, .shadow-md, .shadow-lg, .shadow-2xl {
+                box-shadow: none !important;
+            }
+            .border {
+                border-color: #cbd5e1 !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
+
+    <!-- 頂部標題列 -->
+    <header class="bg-indigo-700 text-white shadow-md no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-indigo-600 rounded-xl shadow-inner">
+                    <i data-lucide="compass" class="w-7 h-7 text-indigo-100"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight">10站閉合導線測量計算器</h1>
+                    <p class="text-indigo-200 text-xs sm:text-sm">中華民國技術士測量（乙、丙級）規章規範驗證系統</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+                <button onclick="loadSampleData()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-medium rounded-lg transition shadow flex items-center gap-1.5">
+                    <i data-lucide="database" class="w-4 h-4"></i> 載入乙丙級範例
+                </button>
+                <button onclick="clearData()" class="px-3 py-2 bg-indigo-800 hover:bg-red-600 text-indigo-100 text-xs sm:text-sm font-medium rounded-lg transition flex items-center gap-1.5">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i> 清空資料
+                </button>
+                <button onclick="toggleExeModal()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-medium rounded-lg transition shadow flex items-center gap-1.5">
+                    <i data-lucide="package" class="w-4 h-4"></i> 免 Python 打包 EXE
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+        
+        <!-- 訊息彈窗提示區 -->
+        <div id="alertBox" class="hidden mb-6 p-4 rounded-xl shadow-sm border flex items-center justify-between transition-all">
+            <div class="flex items-center gap-3">
+                <i id="alertIcon" data-lucide="info" class="w-5 h-5 flex-shrink-0"></i>
+                <span id="alertMessage" class="text-sm font-medium"></span>
+            </div>
+            <button onclick="hideAlert()" class="text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- 導線控制與起點參數設定 -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6 no-print">
+            <h2 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <i data-lucide="sliders" class="w-5 h-5 text-indigo-600"></i> 起始條件與基準座標設定 (起點 P1)
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <!-- 起點座標 X0 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">起點 1 橫座標 X₀ (Easting / m)</label>
+                    <input type="number" id="startX" step="any" placeholder="例如: 1000.000" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono">
+                </div>
+                
+                <!-- 起點座標 Y0 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">起點 1 縱座標 Y₀ (Northing / m)</label>
+                    <input type="number" id="startY" step="any" placeholder="例如: 1000.000" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono">
+                </div>
+
+                <!-- 起始方位角 (D-M-S) -->
+                <div class="lg:col-span-2">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">起始邊 (1→2) 方位角 Azimuth (度 ° - 分 ' - 秒 ")</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="initDeg" placeholder="度 (°)" min="0" max="359" class="w-1/3 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm font-mono">
+                        <span class="text-slate-500 font-bold">°</span>
+                        <input type="number" id="initMin" placeholder="分 (')" min="0" max="59" class="w-1/3 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm font-mono">
+                        <span class="text-slate-500 font-bold">'</span>
+                        <input type="number" id="initSec" step="any" placeholder="秒 (\")" min="0" max="59.999" class="w-1/3 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm font-mono">
+                        <span class="text-slate-500 font-bold">"</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 10 站觀測資料表格 -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6 no-print">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+                <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="table" class="w-5 h-5 text-indigo-600"></i> 10 站測站資料輸入 (順時針閉合導線多邊形)
+                </h2>
+                <span class="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                    規範：內角格式 [度] [分] [秒]，測線長為 S (m)
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-700 text-xs font-semibold border-b border-slate-200">
+                            <th class="py-3 px-3 w-16 text-center">站號</th>
+                            <th class="py-3 px-3 w-32">測站名稱</th>
+                            <th class="py-3 px-3 w-40">測線長 S (m)</th>
+                            <th class="py-3 px-3" colspan="3">觀測內角 (度 ° - 分 ' - 秒 ")</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stationTableBody" class="divide-y divide-slate-200 text-sm">
+                        <!-- JS Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="calculateTraverse()" class="w-full sm:w-auto px-8 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-indigo-200 transition flex items-center justify-center gap-2">
+                    <i data-lucide="calculator" class="w-5 h-5"></i> 執行標準導線平差計算
+                </button>
+            </div>
+        </section>
+
+        <!-- 計算結果與閉合差總結 -->
+        <section id="resultSummarySection" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
+            <h2 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <i data-lucide="activity" class="w-5 h-5 text-indigo-600"></i> 導線平差精度與技術士規範檢核
+            </h2>
+            
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span class="text-xs text-slate-500 font-medium block">角度閉合差 Wα</span>
+                    <span id="resWalpha" class="text-base font-bold text-slate-800 font-mono">0"</span>
+                </div>
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span class="text-xs text-slate-500 font-medium block">角度配賦基準</span>
+                    <span id="resAngleCorr" class="text-base font-bold text-slate-800 font-mono">0.0" / 站</span>
+                </div>
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span class="text-xs text-slate-500 font-medium block">座標閉合差 fx (E)</span>
+                    <span id="resFx" class="text-base font-bold text-slate-800 font-mono">0.000 m</span>
+                </div>
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span class="text-xs text-slate-500 font-medium block">座標閉合差 fy (N)</span>
+                    <span id="resFy" class="text-base font-bold text-slate-800 font-mono">0.000 m</span>
+                </div>
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span class="text-xs text-slate-500 font-medium block">位置閉合差 fs</span>
+                    <span id="resF" class="text-base font-bold text-indigo-600 font-mono">0.000 m</span>
+                </div>
+                <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <span class="text-xs text-indigo-600 font-medium block">導線相對精度 1 : N</span>
+                    <span id="resPrecision" class="text-lg font-extrabold text-indigo-700 font-mono">1 : 0</span>
+                </div>
+            </div>
+
+            <!-- 技術士檢核判定規章標籤 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <div class="p-3.5 rounded-lg border bg-slate-50 border-slate-200 flex justify-between items-center" id="cardClassC">
+                    <div>
+                        <div class="text-xs font-semibold text-slate-500">丙級測量技術士規章檢核 (Class C)</div>
+                        <div class="text-xs text-slate-600 mt-0.5">角度限差 Wα ≤ ±30"√10 (±94.9") | 導線精度 ≥ 1/3,000</div>
+                    </div>
+                    <span id="badgeClassC" class="px-2.5 py-1 text-xs font-bold rounded-full bg-slate-200 text-slate-700">未檢核</span>
+                </div>
+                <div class="p-3.5 rounded-lg border bg-slate-50 border-slate-200 flex justify-between items-center" id="cardClassB">
+                    <div>
+                        <div class="text-xs font-semibold text-slate-500">乙級測量技術士規章檢核 (Class B)</div>
+                        <div class="text-xs text-slate-600 mt-0.5">角度限差 Wα ≤ ±15"√10 (±47.4") | 導線精度 ≥ 1/10,000</div>
+                    </div>
+                    <span id="badgeClassB" class="px-2.5 py-1 text-xs font-bold rounded-full bg-slate-200 text-slate-700">未檢核</span>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-200 text-xs text-slate-500 flex flex-wrap justify-between items-center gap-2">
+                <span>總導線長度 $\sum S$: <strong id="resTotalDist" class="text-slate-700 font-mono">0.000</strong> m</span>
+                <span>內角理論和: <strong id="resTheoreticalSum" class="text-slate-700 font-mono">1440°00'00"</strong> (10邊形 (10-2)×180°)</span>
+            </div>
+        </section>
+
+        <!-- 詳細成果表 (含計算歷程與平差後座標) -->
+        <section id="resultTableSection" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <h2 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="file-spreadsheet" class="w-5 h-5 text-indigo-600"></i> 閉合導線平差計算成果總表 (Bowditch Compass Rule)
+                </h2>
+                <div class="flex gap-2 no-print">
+                    <button onclick="exportCSV()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-md border border-slate-300 transition flex items-center gap-1">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i> 匯出 CSV 成果檔
+                    </button>
+                    <button onclick="window.print()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-md border border-slate-300 transition flex items-center gap-1">
+                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> 列印 / 存為 PDF
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs text-center border-collapse border border-slate-300 min-w-[900px]">
+                    <thead>
+                        <tr class="bg-slate-200 text-slate-700">
+                            <th class="border border-slate-300 py-2.5 px-1.5">站號</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5">觀測內角 (DMS)</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5">改正數 v (")</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5">平差內角 (DMS)</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5">推算方位角 Azimuth</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5">邊長 S (m)</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5">未修正 ΔX</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5">未修正 ΔY</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5">改正 V_x</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5">改正 V_y</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5 bg-indigo-50 font-bold text-indigo-900">平差後 X (m)</th>
+                            <th class="border border-slate-300 py-2.5 px-1.5 bg-indigo-50 font-bold text-indigo-900">平差後 Y (m)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody" class="divide-y divide-slate-200 font-mono text-slate-700">
+                        <!-- Filled by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 免 Python EXE 打包指南 Modal -->
+    <div id="exeModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="px-6 py-4 bg-indigo-700 text-white flex justify-between items-center">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <i data-lucide="box" class="w-5 h-5"></i> 免 Python 將此網頁打包為 Windows EXE 執行檔
+                </h3>
+                <button onclick="toggleExeModal()" class="text-indigo-200 hover:text-white">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 text-slate-700 text-sm">
+                <p class="leading-relaxed">本應用程式為完全自包含的標準 HTML5/JS 系統。完全不需 Python 環境，即可透過以下 Windows 原生或綠色工具打包為雙擊可執行的 <code>.exe</code> 檔：</p>
+                
+                <!-- 方式 1 -->
+                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <h4 class="font-bold text-indigo-700 mb-1 flex items-center gap-1.5">
+                        <i data-lucide="check-circle-2" class="w-4 h-4"></i> 方法一：MS Edge App 快捷捷徑 (最推薦，零安裝)
+                    </h4>
+                    <p class="text-xs text-slate-600 mb-2">利用 Windows 內建 Microsoft Edge 核心產生如同獨立軟體的視窗：</p>
+                    <ol class="list-decimal list-inside space-y-1 text-xs text-slate-600">
+                        <li>雙擊開啟本 <code>traverse_calculator.html</code> 檔案。</li>
+                        <li>點擊 Edge 瀏覽器右上角「...」選單 ➔ <strong>應用程式 (Apps)</strong> ➔ <strong>將此網站作為應用程式安裝</strong>。</li>
+                        <li>安裝後會自動在桌面生成獨立圖示與原生 GUI 視窗，運作與普通 EXE 完全無異！</li>
+                    </ol>
+                </div>
+
+                <!-- 方式 2 -->
+                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <h4 class="font-bold text-indigo-700 mb-1 flex items-center gap-1.5">
+                        <i data-lucide="wrench" class="w-4 h-4"></i> 方法二：Web2EXE / HTML Executable (圖形化綠色封裝)
+                    </h4>
+                    <ol class="list-decimal list-inside space-y-1 text-xs text-slate-600">
+                        <li>下載免安裝軟體 <strong>Web2EXE</strong> 或 <strong>HTML Executable</strong>。</li>
+                        <li>選擇本 <code>traverse_calculator.html</code> 作為 Home / Main Page。</li>
+                        <li>點擊「Build / Export EXE」即可輸出單一獨立 <code>.exe</code> 檔，可拷貝至任何 Windows 電腦執行。</li>
+                    </ol>
+                </div>
+
+                <!-- 方式 3 -->
+                <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <h4 class="font-bold text-indigo-700 mb-1 flex items-center gap-1.5">
+                        <i data-lucide="code-2" class="w-4 h-4"></i> 方法三：NW.js / Nativefier (極致原生體驗)
+                    </h4>
+                    <p class="text-xs text-slate-600 mb-1">使用 Node.js 指令打包為獨立視窗：</p>
+                    <code class="block bg-slate-800 text-emerald-400 p-2.5 rounded font-mono text-xs overflow-x-auto">npx nativefier --name "閉合導線計算器" "file:///C:/path/to/traverse_calculator.html"</code>
+                </div>
+            </div>
+            <div class="px-6 py-3 bg-slate-100 border-t border-slate-200 flex justify-end">
+                <button onclick="toggleExeModal()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700">了解並關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 腳本區域 -->
+    <script>
+        const NUM_STATIONS = 10;
+        let calculatedData = null;
+
+        // 初始化
+        window.onload = function() {
+            lucide.createIcons();
+            initStationInputs();
+        };
+
+        // 動態產出 10 站輸入列
+        function initStationInputs() {
+            const tbody = document.getElementById('stationTableBody');
+            tbody.innerHTML = '';
+            
+            for (let i = 1; i <= NUM_STATIONS; i++) {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 text-center font-bold text-slate-500 font-mono">${i}</td>
+                    <td class="py-2.5 px-3">
+                        <input type="text" id="st_name_${i}" value="P${i}" class="w-full px-2.5 py-1 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 text-sm font-medium">
+                    </td>
+                    <td class="py-2.5 px-3">
+                        <input type="number" step="any" min="0" id="dist_${i}" placeholder="測線 S_${i === 1 ? NUM_STATIONS+'→1' : (i-1)+'→'+i}" class="w-full px-2.5 py-1 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 text-sm font-mono">
+                    </td>
+                    <td class="py-2.5 px-1">
+                        <input type="number" id="deg_${i}" placeholder="度" min="0" max="359" class="w-full px-2 py-1 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 text-sm text-center font-mono">
+                    </td>
+                    <td class="py-2.5 px-1">
+                        <input type="number" id="min_${i}" placeholder="分" min="0" max="59" class="w-full px-2 py-1 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 text-sm text-center font-mono">
+                    </td>
+                    <td class="py-2.5 px-1">
+                        <input type="number" step="any" id="sec_${i}" placeholder="秒" min="0" max="59.999" class="w-full px-2 py-1 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 text-sm text-center font-mono">
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        // 訊息提示彈窗
+        function showAlert(msg, type = 'error') {
+            const alertBox = document.getElementById('alertBox');
+            const alertMsg = document.getElementById('alertMessage');
+            const alertIcon = document.getElementById('alertIcon');
+            
+            alertMsg.innerText = msg;
+            alertBox.classList.remove('hidden', 'bg-red-50', 'border-red-200', 'text-red-800', 'bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
+
+            if (type === 'error') {
+                alertBox.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
+                alertIcon.setAttribute('data-lucide', 'alert-circle');
+            } else {
+                alertBox.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
+                alertIcon.setAttribute('data-lucide', 'check-circle');
+            }
+            lucide.createIcons();
+            alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function hideAlert() {
+            document.getElementById('alertBox').classList.add('hidden');
+        }
+
+        // 度分秒 轉 十進位度數
+        function dmsToDd(d, m, s) {
+            d = parseFloat(d) || 0;
+            m = parseFloat(m) || 0;
+            s = parseFloat(s) || 0;
+            return d + (m / 60.0) + (s / 3600.0);
+        }
+
+        // 十進位度數 轉 DMS 格式化字串
+        function ddToDmsStr(dd) {
+            dd = (dd % 360 + 360) % 360;
+            let d = Math.floor(dd);
+            let rem = (dd - d) * 60.0;
+            let m = Math.floor(rem);
+            let s = (rem - m) * 60.0;
+
+            if (s >= 59.9995) {
+                s = 0;
+                m += 1;
+                if (m >= 60) {
+                    m = 0;
+                    d += 1;
+                }
+            }
+
+            return `${d}°${String(m).padStart(2, '0')}'${s.toFixed(1).padStart(4, '0')}"`;
+        }
+
+        // 載入符合技術士考試規範之標準測試資料
+        function loadSampleData() {
+            document.getElementById('startX').value = 1000.000;
+            document.getElementById('startY').value = 1000.000;
+            document.getElementById('initDeg').value = 45;
+            document.getElementById('initMin').value = 12;
+            document.getElementById('initSec').value = 30;
+
+            const sampleDistances = [120.550, 115.820, 130.240, 105.410, 140.630, 125.350, 110.150, 135.720, 100.910, 118.420];
+            const sampleAngles = [
+                { d: 144, m: 10, s: 12 },
+                { d: 143, m: 50, s: 38 },
+                { d: 144, m: 05, s: 18 },
+                { d: 143, m: 55, s: 08 },
+                { d: 144, m: 12, s: 02 },
+                { d: 143, m: 48, s: 28 },
+                { d: 144, m: 02, s: 48 },
+                { d: 143, m: 58, s: 08 },
+                { d: 144, m: 06, s: 38 },
+                { d: 143, m: 50, s: 48 }
+            ];
+
+            for (let i = 1; i <= NUM_STATIONS; i++) {
+                document.getElementById(`dist_${i}`).value = sampleDistances[i - 1];
+                document.getElementById(`deg_${i}`).value = sampleAngles[i - 1].d;
+                document.getElementById(`min_${i}`).value = sampleAngles[i - 1].m;
+                document.getElementById(`sec_${i}`).value = sampleAngles[i - 1].s;
+            }
+
+            showAlert("已成功載入技術士規範範例資料！請點擊「執行標準導線平差計算」。", "success");
+        }
+
+        function clearData() {
+            document.getElementById('startX').value = '';
+            document.getElementById('startY').value = '';
+            document.getElementById('initDeg').value = '';
+            document.getElementById('initMin').value = '';
+            document.getElementById('initSec').value = '';
+
+            for (let i = 1; i <= NUM_STATIONS; i++) {
+                document.getElementById(`dist_${i}`).value = '';
+                document.getElementById(`deg_${i}`).value = '';
+                document.getElementById(`min_${i}`).value = '';
+                document.getElementById(`sec_${i}`).value = '';
+            }
+
+            document.getElementById('resultSummarySection').classList.add('hidden');
+            document.getElementById('resultTableSection').classList.add('hidden');
+            hideAlert();
+        }
+
+        // 核心計算邏輯：中華民國測量技術士 順時針閉合導線平差 (Bowditch Compass Rule)
+        function calculateTraverse() {
+            hideAlert();
+
+            const x0 = parseFloat(document.getElementById('startX').value);
+            const y0 = parseFloat(document.getElementById('startY').value);
+
+            if (isNaN(x0) || isNaN(y0)) {
+                showAlert("請輸入起點 1 的完整已知基準座標 (X0, Y0)。");
+                return;
+            }
+
+            const initDeg = document.getElementById('initDeg').value;
+            const initMin = document.getElementById('initMin').value;
+            const initSec = document.getElementById('initSec').value;
+
+            if (initDeg === '') {
+                showAlert("請輸入起始邊 (1→2) 之初始方位角 Azimuth。");
+                return;
+            }
+            const alpha12 = dmsToDd(initDeg, initMin, initSec);
+
+            // 收集 10 站觀測資料
+            const stations = [];
+            let obsAngleSum = 0;
+            let totalLength = 0;
+
+            for (let i = 1; i <= NUM_STATIONS; i++) {
+                const name = document.getElementById(`st_name_${i}`).value || `P${i}`;
+                const dist = parseFloat(document.getElementById(`dist_${i}`).value);
+                const d = document.getElementById(`deg_${i}`).value;
+                const m = document.getElementById(`min_${i}`).value;
+                const s = document.getElementById(`sec_${i}`).value;
+
+                if (isNaN(dist) || dist <= 0) {
+                    showAlert(`請為第 ${i} 站輸入有效的測線邊長 S。`);
+                    return;
+                }
+                if (d === '') {
+                    showAlert(`請為第 ${i} 站輸入有效的觀測內角 (度)。`);
+                    return;
+                }
+
+                const angleDd = dmsToDd(d, m, s);
+                obsAngleSum += angleDd;
+                totalLength += dist;
+
+                stations.push({
+                    id: i,
+                    name: name,
+                    dist: dist,
+                    obsAngleDd: angleDd,
+                    obsAngleDms: `${d}°${String(m||0).padStart(2,'0')}'${parseFloat(s||0).toFixed(1).padStart(4,'0')}"`
+                });
+            }
+
+            // 1. 角度閉合差計算 (10邊形理論內角和 = (10-2)*180 = 1440°)
+            const theoreticalSum = (NUM_STATIONS - 2) * 180;
+            const wAlphaDd = obsAngleSum - theoreticalSum; // 角度閉合差 (度)
+            const wAlphaSec = wAlphaDd * 3600; // 轉為秒
+
+            // 計算平均整數配賦秒數 (-Walpha / n)
+            // 技術士規範配賦：精確分配至各內角
+            const totalCorrSec = -wAlphaSec;
+            const baseCorrSec = Math.floor(totalCorrSec / NUM_STATIONS);
+            const remainderSec = Math.round(totalCorrSec - (baseCorrSec * NUM_STATIONS));
+
+            // 分配修正數
+            const stationCorrsSec = [];
+            for (let i = 0; i < NUM_STATIONS; i++) {
+                let corr = baseCorrSec;
+                if (i < remainderSec) {
+                    corr += 1;
+                }
+                stationCorrsSec.push(corr);
+            }
+
+            // 2. 推算平差後內角與各邊方位角
+            // 順時針閉合導線方位角推算公式：
+            // Azimuth(i -> i+1) = Azimuth(previous) + 180° - Adjusted_Angle_i
+            let currentAzimuth = alpha12;
+            let totalDx = 0;
+            let totalDy = 0;
+
+            const calcRows = [];
+
+            for (let i = 0; i < NUM_STATIONS; i++) {
+                const st = stations[i];
+                const vSec = stationCorrsSec[i];
+                const adjAngleDd = st.obsAngleDd + (vSec / 3600.0);
+
+                let az = 0;
+                if (i === 0) {
+                    az = alpha12;
+                } else {
+                    az = currentAzimuth + 180.0 - adjAngleDd;
+                    az = (az % 360 + 360) % 360; // 保持 0~360
+                    currentAzimuth = az;
+                }
+
+                // 計算縱橫座標增量: ΔX = S * sin(Azimuth), ΔY = S * cos(Azimuth)
+                const azRad = az * Math.PI / 180.0;
+                const dx = st.dist * Math.sin(azRad);
+                const dy = st.dist * Math.cos(azRad);
+
+                totalDx += dx;
+                totalDy += dy;
+
+                calcRows.push({
+                    ...st,
+                    vAngleSec: vSec,
+                    adjAngleDd: adjAngleDd,
+                    azimuthDd: az,
+                    dx: dx,
+                    dy: dy
+                });
+            }
+
+            // 3. 座標閉合差 fx, fy 與位置閉合差 fs
+            const fx = totalDx;
+            const fy = totalDy;
+            const fs = Math.sqrt(fx * fx + fy * fy);
+
+            // 導線相對精度 1 : N (N = 總邊長 / fs)
+            const precisionN = fs > 0 ? Math.round(totalLength / fs) : Infinity;
+
+            // 4. Bowditch 羅盤法則座標平差修正 (依邊長比例配賦)
+            // Vxi = -fx * (Si / Total_S), Vyi = -fy * (Si / Total_S)
+            let currX = x0;
+            let currY = y0;
+
+            for (let i = 0; i < NUM_STATIONS; i++) {
+                const row = calcRows[i];
+                const vx = -fx * (row.dist / totalLength);
+                const vy = -fy * (row.dist / totalLength);
+
+                currX += (row.dx + vx);
+                currY += (row.dy + vy);
+
+                row.vx = vx;
+                row.vy = vy;
+                row.finalX = currX;
+                row.finalY = currY;
+            }
+
+            // 全域資料保存
+            calculatedData = {
+                stations: calcRows,
+                wAlphaSec: wAlphaSec,
+                wAlphaDd: wAlphaDd,
+                baseCorrSec: baseCorrSec,
+                totalLength: totalLength,
+                fx: fx,
+                fy: fy,
+                fs: fs,
+                precisionN: precisionN,
+                x0: x0,
+                y0: y0
+            };
+
+            // 渲染畫面
+            renderResults();
+        }
+
+        function renderResults() {
+            if (!calculatedData) return;
+
+            const d = calculatedData;
+
+            // 填寫 summary 卡片
+            document.getElementById('resWalpha').innerText = `${d.wAlphaSec > 0 ? '+' : ''}${d.wAlphaSec.toFixed(1)}"`;
+            document.getElementById('resAngleCorr').innerText = `${d.baseCorrSec > 0 ? '+' : ''}${d.baseCorrSec.toFixed(1)}" / 站`;
+            document.getElementById('resFx').innerText = `${d.fx > 0 ? '+' : ''}${d.fx.toFixed(4)} m`;
+            document.getElementById('resFy').innerText = `${d.fy > 0 ? '+' : ''}${d.fy.toFixed(4)} m`;
+            document.getElementById('resF').innerText = `${d.fs.toFixed(4)} m`;
+            document.getElementById('resPrecision').innerText = d.precisionN === Infinity ? '完全閉合' : `1 : ${d.precisionN.toLocaleString()}`;
+            document.getElementById('resTotalDist').innerText = d.totalLength.toFixed(3);
+
+            // 乙、丙級測量技術士規章檢核標籤判定
+            // 丙級規範：Wα ≤ ±30" * sqrt(10) = ±94.87", 精度 ≥ 1/3,000
+            const maxWalphaClassC = 30 * Math.sqrt(NUM_STATIONS); // 94.868"
+            const passWalphaC = Math.abs(d.wAlphaSec) <= maxWalphaClassC;
+            const passPrecisionsC = d.precisionN >= 3000;
+            updateCheckCard('ClassC', passWalphaC && passPrecisionsC, passWalphaC, passPrecisionsC);
+
+            // 乙級規範：Wα ≤ ±15" * sqrt(10) = ±47.43", 精度 ≥ 1/10,000
+            const maxWalphaClassB = 15 * Math.sqrt(NUM_STATIONS); // 47.434"
+            const passWalphaB = Math.abs(d.wAlphaSec) <= maxWalphaClassB;
+            const passPrecisionsB = d.precisionN >= 10000;
+            updateCheckCard('ClassB', passWalphaB && passPrecisionsB, passWalphaB, passPrecisionsB);
+
+            // 填寫成果表格
+            const tbody = document.getElementById('resultTableBody');
+            tbody.innerHTML = '';
+
+            // 插入起點 1 基準列
+            const trInit = document.createElement('tr');
+            trInit.className = "bg-slate-50 font-semibold";
+            trInit.innerHTML = `
+                <td class="border border-slate-300 py-2.5 px-1.5">${d.stations[0].name} (起點)</td>
+                <td class="border border-slate-300 py-2.5 px-1.5">-</td>
+                <td class="border border-slate-300 py-2.5 px-1.5">-</td>
+                <td class="border border-slate-300 py-2.5 px-1.5">-</td>
+                <td class="border border-slate-300 py-2.5 px-1.5">-</td>
+                <td class="border border-slate-300 py-2.5 px-1.5">-</td>
+                <td class="border border-slate-300 py-2.5 px-1.5">-</td>
+                <td class="border border-slate-300 py-2.5 px-1.5">-</td>
+                <td class="border border-slate-300 py-2.5 px-1.5">-</td>
+                <td class="border border-slate-300 py-2.5 px-1.5">-</td>
+                <td class="border border-slate-300 py-2.5 px-1.5 bg-indigo-50 font-bold text-indigo-900">${d.x0.toFixed(3)}</td>
+                <td class="border border-slate-300 py-2.5 px-1.5 bg-indigo-50 font-bold text-indigo-900">${d.y0.toFixed(3)}</td>
+            `;
+            tbody.appendChild(trInit);
+
+            d.stations.forEach((st) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="border border-slate-300 py-2.5 px-1.5 font-semibold">${st.name}</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5">${st.obsAngleDms}</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5 text-slate-500">${st.vAngleSec > 0 ? '+' : ''}${st.vAngleSec.toFixed(0)}"</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5">${ddToDmsStr(st.adjAngleDd)}</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5 text-indigo-700 font-semibold">${ddToDmsStr(st.azimuthDd)}</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5 font-medium">${st.dist.toFixed(3)}</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5">${st.dx.toFixed(3)}</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5">${st.dy.toFixed(3)}</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5 text-slate-500">${st.vx > 0 ? '+' : ''}${st.vx.toFixed(3)}</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5 text-slate-500">${st.vy > 0 ? '+' : ''}${st.vy.toFixed(3)}</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5 bg-indigo-50 font-bold text-indigo-900">${st.finalX.toFixed(3)}</td>
+                    <td class="border border-slate-300 py-2.5 px-1.5 bg-indigo-50 font-bold text-indigo-900">${st.finalY.toFixed(3)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('resultSummarySection').classList.remove('hidden');
+            document.getElementById('resultTableSection').classList.remove('hidden');
+
+            showAlert("閉合導線平差計算完成！符合技術士規範格式。", "success");
+            document.getElementById('resultSummarySection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 判定檢核卡片狀態
+        function updateCheckCard(level, isAllPassed, isWPassed, isPPassed) {
+            const card = document.getElementById(`card${level}`);
+            const badge = document.getElementById(`badge${level}`);
+
+            if (isAllPassed) {
+                card.className = "p-3.5 rounded-lg border bg-emerald-50 border-emerald-200 flex justify-between items-center";
+                badge.className = "px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-600 text-white shadow-sm";
+                badge.innerText = "合格 (PASS)";
+            } else {
+                card.className = "p-3.5 rounded-lg border bg-rose-50 border-rose-200 flex justify-between items-center";
+                badge.className = "px-2.5 py-1 text-xs font-bold rounded-full bg-rose-600 text-white shadow-sm";
+                badge.innerText = `超限 (${!isWPassed ? '角度' : ''}${!isWPassed && !isPPassed ? '&' : ''}${!isPPassed ? '精度' : ''})`;
+            }
+        }
+
+        // 匯出 CSV 成果表
+        function exportCSV() {
+            if (!calculatedData) return;
+
+            let csvContent = "\uFEFF"; // UTF-8 BOM
+            csvContent += "10站閉合導線測量計算成果表 (中華民國技術士規章規範)\n";
+            csvContent += `總導線長(m),${calculatedData.totalLength.toFixed(3)},角度閉合差(秒),${calculatedData.wAlphaSec.toFixed(1)},位置閉合差(m),${calculatedData.fs.toFixed(4)},相對精度,1:${calculatedData.precisionN}\n\n`;
+            csvContent += "站號,觀測內角,角度修正數(\"),平差內角,推算方位角,測線邊長(m),未修正ΔX(m),未修正ΔY(m),修正Vx(m),修正Vy(m),平差後X(m),平差後Y(m)\n";
+            
+            csvContent += `起點, - , - , - , - , - , - , - , - , - ,${calculatedData.x0.toFixed(3)},${calculatedData.y0.toFixed(3)}\n`;
+
+            calculatedData.stations.forEach(st => {
+                csvContent += `${st.name},"${st.obsAngleDms}",${st.vAngleSec.toFixed(0)},"${ddToDmsStr(st.adjAngleDd)}","${ddToDmsStr(st.azimuthDd)}",${st.dist.toFixed(3)},${st.dx.toFixed(3)},${st.dy.toFixed(3)},${st.vx.toFixed(3)},${st.vy.toFixed(3)},${st.finalX.toFixed(3)},${st.finalY.toFixed(3)}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `閉合導線計算成果_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Modal 切換
+        function toggleExeModal() {
+            const modal = document.getElementById('exeModal');
+            modal.classList.toggle('hidden');
+        }
+    </script>
+</body>
+</html>
